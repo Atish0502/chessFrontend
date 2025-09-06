@@ -1,3 +1,6 @@
 {
-  "outputDirectory": "front/public"
+  "outputDirectory": "front/public",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
