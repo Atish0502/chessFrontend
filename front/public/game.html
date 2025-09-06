@@ -1,6 +1,6 @@
 <html>
     <head>
-        {{> head}}
+    <!-- Head partial removed for static deployment -->
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
         html, body {
@@ -120,11 +120,9 @@
             </div>
         </div>
 
-        <script>
-            let playerColor = '{{color}}';
-            console.log('Playing as ' + playerColor);
-        </script>
-        <script src="/public/js/index.js"></script>
+    <!-- jQuery must be loaded before any script using $ or jQuery -->
+    <script src="/js/jquery-3.7.0.min.js"></script>
+    <script src="/js/index.js"></script>
 
     </body>
 </html>
