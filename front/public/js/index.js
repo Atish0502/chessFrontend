@@ -32,8 +32,25 @@ let chatMessages = [];
 // Backend URL - always use Render backend for Socket.IO
 let backendUrl = 'https://chessbackend-m68d.onrender.com';
 
-// Socket connection
-const socket = io(backendUrl, { transports: ['websocket', 'polling'] });
+// Socket connection with better error handling
+const socket = io(backendUrl, { 
+  transports: ['websocket', 'polling'],
+  timeout: 5000
+});
+
+// Add connection status logging
+socket.on('connect', () => {
+  console.log('✅ Connected to backend!');
+  if (gameCode) socket.emit('joinGame', { code: gameCode });
+});
+
+socket.on('disconnect', () => {
+  console.log('❌ Disconnected from backend');
+});
+
+socket.on('connect_error', (error) => {
+  console.log('❌ Connection error:', error);
+});
 
 // --- Helper / UI Functions ---
 function formatTime(seconds) {

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chess Test</title>
+</head>
+<body>
+    <h1>Chess Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="timer-test">Timer: <span id="test-timer">10:00</span></div>
+    
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io('https://chessbackend-m68d.onrender.com');
+        
+        socket.on('connect', () => {
+            document.getElementById('status').innerHTML = '✅ Connected to backend!';
+            socket.emit('joinGame', { code: 'test123' });
+        });
+        
+        socket.on('startGame', (data) => {
+            document.getElementById('status').innerHTML = '🎮 Game started! Players connected.';
+            console.log('Game data:', data);
+        });
+        
+        socket.on('disconnect', () => {
+            document.getElementById('status').innerHTML = '❌ Disconnected';
+        });
+        
+        // Test timer
+        let seconds = 600;
+        setInterval(() => {
+            seconds--;
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            document.getElementById('test-timer').textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+        }, 1000);
+    </script>
+</body>
+</html>
