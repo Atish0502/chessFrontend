@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Working Chess Game</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="css/chessboard-1.0.0.min.css">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f0f0f0; 
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            display: flex; 
+            gap: 20px; 
+        }
+        .board-section { 
+            flex: 1; 
+        }
+        .info-section { 
+            width: 300px; 
+        }
+        #myBoard { 
+            width: 500px; 
+        }
+        .timer { 
+            padding: 10px; 
+            margin: 5px 0; 
+            background: #fff; 
+            border: 2px solid #ddd; 
+            border-radius: 5px; 
+            text-align: center; 
+            font-size: 18px; 
+            font-weight: bold; 
+        }
+        .timer.active { 
+            border-color: #ff9800; 
+            background: #fff3e0; 
+        }
+        #status { 
+            padding: 15px; 
+            background: #e3f2fd; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+        }
+        #chat { 
+            border: 1px solid #ddd; 
+            height: 200px; 
+            overflow-y: auto; 
+            padding: 10px; 
+            background: white; 
+            margin: 10px 0; 
+        }
+        #chatInput { 
+            width: 100%; 
+            padding: 8px; 
+            margin: 5px 0; 
+        }
+        button { 
+            padding: 8px 15px; 
+            background: #2196f3; 
+            color: white; 
+            border: none; 
+            border-radius: 3px; 
+            cursor: pointer; 
+        }
+        button:hover { 
+            background: #1976d2; 
+        }
+        .connection-status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .connected { background: #c8e6c9; color: #2e7d32; }
+        .disconnected { background: #ffcdd2; color: #c62828; }
+        .connecting { background: #fff3e0; color: #f57c00; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="board-section">
+            <h1>Chess Game</h1>
+            <div id="connectionStatus" class="connection-status connecting">🔄 Connecting...</div>
+            <div id="myBoard"></div>
+            <div id="status">Loading...</div>
+        </div>
+        
+        <div class="info-section">
+            <div class="timer" id="whiteTimer">White: 10:00</div>
+            <div class="timer" id="blackTimer">Black: 10:00</div>
+            
+            <div>
+                <h3>Game Info</h3>
+                <div>Code: <span id="gameCodeDisplay">-</span></div>
+                <div>You are: <span id="colorDisplay">-</span></div>
+            </div>
+            
+            <div>
+                <h3>Chat</h3>
+                <div id="chat"></div>
+                <input type="text" id="chatInput" placeholder="Type message..." maxlength="100">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery-3.7.0.min.js"></script>
+    <script src="js/chess-0.10.3.min.js"></script>
+    <script src="js/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <script>
+        // SIMPLE WORKING CHESS GAME
+        let game = new Chess();
+        let board = null;
+        let socket = null;
+        let gameCode = '';
+        let myColor = 'white';
+        let gameStarted = false;
+        let whiteTime = 600;
+        let blackTime = 600;
+        let chatMessages = [];
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        gameCode = urlParams.get('code') || 'test123';
+        myColor = urlParams.get('color') || 'white';
+
+        console.log('Game starting:', gameCode, myColor);
+
+        // Update display
+        document.getElementById('gameCodeDisplay').textContent = gameCode;
+        document.getElementById('colorDisplay').textContent = myColor;
+
+        // Connect to server
+        socket = io('https://chessbackend-m68d.onrender.com');
+
+        socket.on('connect', () => {
+            console.log('Connected!');
+            updateConnectionStatus('✅ Connected', 'connected');
+            socket.emit('joinGame', { code: gameCode });
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected');
+            updateConnectionStatus('❌ Disconnected', 'disconnected');
+        });
+
+        socket.on('startGame', (data) => {
+            console.log('Game started:', data);
+            gameStarted = true;
+            if (data) {
+                whiteTime = data.whiteTime || 600;
+                blackTime = data.blackTime || 600;
+                chatMessages = data.chat || [];
+            }
+            updateTimers();
+            updateStatus('Game started! Your turn: ' + (game.turn() === 'w' ? 'White' : 'Black'));
+            renderChat();
+        });
+
+        socket.on('newMove', (data) => {
+            console.log('Move received:', data);
+            if (data && data.move) {
+                game.move(data.move);
+                board.position(game.fen());
+                updateStatus();
+            }
+            if (data.whiteTime !== undefined) whiteTime = data.whiteTime;
+            if (data.blackTime !== undefined) blackTime = data.blackTime;
+            updateTimers();
+        });
+
+        socket.on('timerUpdate', (data) => {
+            console.log('Timer update:', data);
+            if (data) {
+                if (data.whiteTime !== undefined) whiteTime = data.whiteTime;
+                if (data.blackTime !== undefined) blackTime = data.blackTime;
+                updateTimers();
+            }
+        });
+
+        socket.on('chatUpdate', (data) => {
+            console.log('Chat update:', data);
+            if (data && data.chat) {
+                chatMessages = data.chat;
+                renderChat();
+            }
+        });
+
+        // Board setup
+        function onDragStart(source, piece, position, orientation) {
+            if (!gameStarted) return false;
+            if (game.game_over()) return false;
+            
+            // Only allow your pieces
+            if ((myColor === 'white' && piece.search(/^b/) !== -1) ||
+                (myColor === 'black' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+            
+            // Only your turn
+            if ((game.turn() === 'w' && myColor !== 'white') ||
+                (game.turn() === 'b' && myColor !== 'black')) {
+                return false;
+            }
+        }
+
+        function onDrop(source, target) {
+            const move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q'
+            });
+
+            if (move === null) return 'snapback';
+
+            socket.emit('move', { from: source, to: target, promotion: 'q' });
+            updateStatus();
+            updateTimers();
+        }
+
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+
+        // Initialize board
+        board = Chessboard('myBoard', {
+            draggable: true,
+            position: 'start',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd,
+            pieceTheme: 'img/chesspieces/wikipedia/{piece}.png'
+        });
+
+        if (myColor === 'black') {
+            board.flip();
+        }
+
+        function updateConnectionStatus(text, className) {
+            const el = document.getElementById('connectionStatus');
+            el.textContent = text;
+            el.className = 'connection-status ' + className;
+        }
+
+        function updateStatus(customText) {
+            let status = customText || '';
+            
+            if (!customText) {
+                if (!gameStarted) {
+                    status = 'Waiting for opponent...';
+                } else if (game.in_checkmate()) {
+                    status = 'Checkmate! ' + (game.turn() === 'w' ? 'Black' : 'White') + ' wins!';
+                } else if (game.in_draw()) {
+                    status = 'Draw!';
+                } else {
+                    const turn = game.turn() === 'w' ? 'White' : 'Black';
+                    status = turn + ' to move';
+                    if (game.in_check()) status += ' (in check)';
+                }
+            }
+            
+            document.getElementById('status').textContent = status;
+        }
+
+        function updateTimers() {
+            const whiteEl = document.getElementById('whiteTimer');
+            const blackEl = document.getElementById('blackTimer');
+            
+            whiteEl.textContent = 'White: ' + formatTime(whiteTime);
+            blackEl.textContent = 'Black: ' + formatTime(blackTime);
+            
+            // Highlight active player
+            whiteEl.className = 'timer' + (game.turn() === 'w' && gameStarted ? ' active' : '');
+            blackEl.className = 'timer' + (game.turn() === 'b' && gameStarted ? ' active' : '');
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        function renderChat() {
+            const chatEl = document.getElementById('chat');
+            let html = '';
+            
+            chatMessages.forEach(msg => {
+                const isMe = msg.color === myColor;
+                const name = isMe ? 'You' : 'Opponent';
+                const style = isMe ? 'color: blue;' : 'color: red;';
+                html += `<div style="${style}"><b>${name}:</b> ${msg.msg}</div>`;
+            });
+            
+            chatEl.innerHTML = html;
+            chatEl.scrollTop = chatEl.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            
+            if (msg && socket) {
+                console.log('Sending:', msg);
+                socket.emit('chatMessage', { msg: msg, color: myColor });
+                input.value = '';
+            }
+        }
+
+        // Enter key for chat
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Initial setup
+        updateStatus();
+        updateTimers();
+        
+        console.log('Chess game initialized');
+    </script>
+</body>
+</html>
