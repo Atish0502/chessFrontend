@@ -140,20 +140,23 @@ function updateStatus () {
     $pgn.html(game.pgn())
 }
 
-var config = {
 
+var config = {
     draggable: true,
     position: 'start',
     onDragStart: onDragStart,
     onDrop: onDrop,
     onSnapEnd: onSnapEnd,
-    pieceTheme: '/public/img/chesspieces/wikipedia/{piece}.png'
+    pieceTheme: 'img/chesspieces/wikipedia/{piece}.png'
 };
-board = Chessboard('myBoard', config);
-if (myColor === 'black') {
-    board.flip();
-}
-updateStatus();
+
+$(function() {
+    board = Chessboard('myBoard', config);
+    if (myColor === 'black') {
+        board.flip();
+    }
+    updateStatus();
+});
 
 // Remove setColor logic and always join game with a valid code
 if (gameCode) {
