@@ -139,26 +139,41 @@
         document.getElementById('colorDisplay').textContent = myColor;
 
         // Connect to server
-        socket = io('https://chessbackend-m68d.onrender.com');
-
-        socket.on('connect', () => {
-            console.log('Connected!');
-            updateConnectionStatus('✅ Connected', 'connected');
-            socket.emit('joinGame', { code: gameCode });
+        console.log('Connecting to backend...');
+        socket = io('https://chessbackend-m68d.onrender.com', {
+            transports: ['polling', 'websocket'],
+            upgrade: true,
+            rememberUpgrade: false,
+            timeout: 20000
         });
 
-        socket.on('disconnect', () => {
-            console.log('Disconnected');
-            updateConnectionStatus('❌ Disconnected', 'disconnected');
+        socket.on('connect', () => {
+            console.log('✅ Connected! Socket ID:', socket.id);
+            updateConnectionStatus('✅ Connected', 'connected');
+            setTimeout(() => {
+                console.log('Joining game:', gameCode);
+                socket.emit('joinGame', { code: gameCode });
+            }, 100);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('❌ Connection failed:', error);
+            updateConnectionStatus('❌ Connection failed: ' + error.message, 'disconnected');
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.log('❌ Disconnected:', reason);
+            updateConnectionStatus('❌ Disconnected: ' + reason, 'disconnected');
         });
 
         socket.on('startGame', (data) => {
-            console.log('Game started:', data);
+            console.log('🎮 Game started event received:', data);
             gameStarted = true;
             if (data) {
                 whiteTime = data.whiteTime || 600;
                 blackTime = data.blackTime || 600;
                 chatMessages = data.chat || [];
+                console.log('Game data loaded:', { whiteTime, blackTime, chatCount: chatMessages.length });
             }
             updateTimers();
             updateStatus('Game started! Your turn: ' + (game.turn() === 'w' ? 'White' : 'Black'));
@@ -166,9 +181,10 @@
         });
 
         socket.on('newMove', (data) => {
-            console.log('Move received:', data);
+            console.log('♟️ Move received:', data);
             if (data && data.move) {
-                game.move(data.move);
+                const moveResult = game.move(data.move);
+                console.log('Move applied:', moveResult);
                 board.position(game.fen());
                 updateStatus();
             }
@@ -178,7 +194,7 @@
         });
 
         socket.on('timerUpdate', (data) => {
-            console.log('Timer update:', data);
+            console.log('⏰ Timer update received:', data);
             if (data) {
                 if (data.whiteTime !== undefined) whiteTime = data.whiteTime;
                 if (data.blackTime !== undefined) blackTime = data.blackTime;
@@ -187,7 +203,7 @@
         });
 
         socket.on('chatUpdate', (data) => {
-            console.log('Chat update:', data);
+            console.log('💬 Chat update received:', data);
             if (data && data.chat) {
                 chatMessages = data.chat;
                 renderChat();
