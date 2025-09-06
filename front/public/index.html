@@ -81,7 +81,7 @@
         <div style="margin-top:40px; font-size:1.5em; color:#a47551; font-family:'Segoe Script',cursive; text-shadow:0 0 8px #ffe082; letter-spacing:2px;">MADE WITH LOVE</div>
         <div style="margin-top:40px; font-size:1.5em; color:#a47551; font-family:'Segoe Script',cursive; text-shadow:0 0 8px #c4aa5d; letter-spacing:2px;">Thank you</div>
         <script>
-            // AI Play Dropdown logic
+            // AI Play Dropdown logic (redirect to static ai.html)
             const aiBtn = document.getElementById('aiPlayBtn');
             const aiDropdown = document.getElementById('aiDropdown');
             if (aiBtn && aiDropdown) {
@@ -99,20 +99,28 @@
                     opt.addEventListener('click', function() {
                         const diff = this.getAttribute('data-diff');
                         aiDropdown.style.display = 'none';
-                        window.location.replace(`/ai?difficulty=${diff}`);
+                        window.location.replace(`/ai.html?difficulty=${diff}`);
                     });
                 });
             }
+            // Multiplayer: redirect to static game.html with code param
             $('#createGame').on('click', function() {
-                window.location.replace('/white?code=' + $('#codeInput').val());
+                const code = $('#codeInput').val();
+                if (code) {
+                    window.location.replace('/game.html?code=' + encodeURIComponent(code) + '&color=white');
+                } else {
+                    $('#errorMessage').text('Please enter a game code');
+                }
             });
             $('#joinGame').on('click', function() {
-                window.location.replace('/black?code=' + $('#codeInput').val());
+                const code = $('#codeInput').val();
+                if (code) {
+                    window.location.replace('/game.html?code=' + encodeURIComponent(code) + '&color=black');
+                } else {
+                    $('#errorMessage').text('Please enter a game code');
+                }
             });
-            var urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('error') == 'invalidCode') {
-                $('#errorMessage').text('Invalid invite code');
-            }
+            // Remove backend error param logic (not needed for static)
         </script>
     </body>
 </html>

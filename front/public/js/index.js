@@ -40,6 +40,11 @@ let whiteTime = 600;
 let blackTime = 600;
 let myColor = null;
 
+// Get color and code from URL for static hosting
+const urlParams = new URLSearchParams(window.location.search);
+let myColor = (window.playerColor || urlParams.get('color') || 'white');
+let gameCode = (window.gameCode || urlParams.get('code') || '');
+
 function updateTimerDisplays(turn) {
     const format = (secs) => {
         let m = Math.floor(secs / 60);
@@ -140,21 +145,19 @@ function updateStatus () {
 }
 
 var config = {
+
     draggable: true,
     position: 'start',
     onDragStart: onDragStart,
     onDrop: onDrop,
     onSnapEnd: onSnapEnd,
     pieceTheme: '/public/img/chesspieces/wikipedia/{piece}.png'
-}
-board = Chessboard('myBoard', config)
-
-myColor = playerColor;
-if (myColor == 'black') {
+};
+board = Chessboard('myBoard', config);
+if (myColor === 'black') {
     board.flip();
 }
-
-updateStatus()
+updateStatus();
 
 // Remove setColor logic and always join game with a valid code
 var urlParams = new URLSearchParams(window.location.search);
