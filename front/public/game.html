@@ -2,6 +2,10 @@
     <head>
     <!-- Head partial removed for static deployment -->
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/css/chessboard-1.0.0.min.css">
+        <script src="/js/jquery-3.7.0.min.js"></script>
+        <script src="/js/chess-0.10.3.min.js"></script>
+        <script src="/js/chessboard-1.0.0.min.js"></script>
         <style>
         html, body {
             width: 100%;
@@ -94,8 +98,7 @@
         </style>
     </head>
     <body>
-
-        <div class="game-flex">
+    <div class="game-flex">
             <div class="timers-col">
                 <div class="timer-box">
                     <div style="font-weight:bold;">Black Timer</div>
@@ -120,8 +123,6 @@
             </div>
         </div>
 
-    <!-- jQuery must be loaded before any script using $ or jQuery -->
-    <script src="/js/jquery-3.7.0.min.js"></script>
     <script src="/js/index.js"></script>
     <script>
     // Patch for static hosting: set myColor and gameCode from URL
