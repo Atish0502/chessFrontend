@@ -126,13 +126,22 @@
 
     <script src="/js/index.js"></script>
     <script>
-    // Patch for static hosting: set myColor and gameCode from URL
+    // Set URL parameters for static hosting
     (function() {
         const urlParams = new URLSearchParams(window.location.search);
-        window.playerColor = urlParams.get('color') || 'white';
-        window.gameCode = urlParams.get('code') || '';
-        // Optionally, you can display the code somewhere on the page
-        // document.getElementById('status').innerText += ` | Game code: ${window.gameCode}`;
+        const gameCode = urlParams.get('code') || '';
+        const playerColor = urlParams.get('color') || 'white';
+        
+        // Set global variables that the main script will use
+        window.gameCode = gameCode;
+        window.playerColor = playerColor;
+        
+        console.log('Game initialized with:', { gameCode, playerColor });
+        
+        // Display game info
+        if (gameCode) {
+            document.title = `Chess Game - ${gameCode} (${playerColor})`;
+        }
     })();
     </script>
 

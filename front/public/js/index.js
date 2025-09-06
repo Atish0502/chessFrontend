@@ -1,237 +1,275 @@
-// Clean rewritten frontend game logic
-// Ensures functions are not inside the io() config object
-
-// --- Global/Game State ---
-const game = new Chess();
+// CLEAN WORKING CHESS FRONTEND - FIXED VERSION
+let game = new Chess();
 let board = null;
-let myColor = (window.playerColor === 'black' || window.playerColor === 'white') ? window.playerColor : 'white';
-let gameCode = window.gameCode || '';
-let gameHasStarted = false;
-let gameOver = false;
+let socket = null;
+let myColor = 'white';
+let gameCode = '';
+let gameStarted = false;
 
-// Timers (seconds)
-let whiteTime = 600; // default 10:00
+// Timer state
+let whiteTime = 600;
 let blackTime = 600;
-
-// Cached DOM refs - with null checks
-const $status = $('#status');
-const $pgn = $('#pgn');
-let whiteTimerEl = null;
-let blackTimerEl = null;
-
-// Initialize timer elements when DOM is ready
-$(function() {
-  whiteTimerEl = document.getElementById('white-timer');
-  blackTimerEl = document.getElementById('black-timer');
-  console.log('Timer elements found:', whiteTimerEl, blackTimerEl);
-});
-
-// Chat state
 let chatMessages = [];
 
-// Backend URL - always use Render backend for Socket.IO
-let backendUrl = 'https://chessbackend-m68d.onrender.com';
+// Backend URL
+const BACKEND_URL = 'https://chessbackend-m68d.onrender.com';
 
-// Socket connection with better error handling
-const socket = io(backendUrl, { 
-  transports: ['websocket', 'polling'],
-  timeout: 5000
-});
+// DOM elements
+let whiteTimerEl, blackTimerEl;
 
-// Add connection status logging
-socket.on('connect', () => {
-  console.log('✅ Connected to backend!');
-  if (gameCode) {
-    console.log('Joining game with code:', gameCode);
-    socket.emit('joinGame', { code: gameCode });
-  }
-});
-
-socket.on('disconnect', () => {
-  console.log('❌ Disconnected from backend');
-});
-
-socket.on('connect_error', (error) => {
-  console.log('❌ Connection error:', error);
-});
-
-// --- Helper / UI Functions ---
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
+function initializeGame() {
+    // Get URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    gameCode = urlParams.get('code') || '';
+    myColor = urlParams.get('color') || 'white';
+    
+    console.log('Initializing game:', { gameCode, myColor });
+    
+    // Get timer elements
+    whiteTimerEl = document.getElementById('white-timer');
+    blackTimerEl = document.getElementById('black-timer');
+    
+    // Initialize Socket.IO
+    socket = io(BACKEND_URL, {
+        transports: ['websocket', 'polling']
+    });
+    
+    setupSocketEvents();
+    setupBoard();
+    updateDisplay();
 }
 
-function updateTimerDisplays(turn) {
-  if (whiteTimerEl && typeof whiteTime === 'number') {
-    whiteTimerEl.textContent = formatTime(whiteTime);
-  }
-  if (blackTimerEl && typeof blackTime === 'number') {
-    blackTimerEl.textContent = formatTime(blackTime);
-  }
-  
-  // Add visual indication of whose turn it is
-  if (whiteTimerEl && blackTimerEl && gameHasStarted) {
-    if (turn === 'w' || game.turn() === 'w') {
-      whiteTimerEl.style.backgroundColor = '#ffeb3b';
-      blackTimerEl.style.backgroundColor = '#f5f5f5';
-    } else {
-      whiteTimerEl.style.backgroundColor = '#f5f5f5';
-      blackTimerEl.style.backgroundColor = '#ffeb3b';
+function setupSocketEvents() {
+    socket.on('connect', () => {
+        console.log('✅ Connected to server');
+        updateStatus('Connected to server');
+        if (gameCode) {
+            socket.emit('joinGame', { code: gameCode });
+        }
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('❌ Disconnected from server');
+        updateStatus('Disconnected from server');
+    });
+    
+    socket.on('startGame', (data) => {
+        console.log('🎮 Game started:', data);
+        gameStarted = true;
+        if (data) {
+            whiteTime = data.whiteTime || 600;
+            blackTime = data.blackTime || 600;
+            chatMessages = data.chat || [];
+        }
+        updateDisplay();
+        renderChat();
+    });
+    
+    socket.on('newMove', (data) => {
+        console.log('♟️ Move received:', data);
+        if (data && data.move) {
+            game.move(data.move);
+            board.position(game.fen());
+        }
+        if (data.whiteTime !== undefined) whiteTime = data.whiteTime;
+        if (data.blackTime !== undefined) blackTime = data.blackTime;
+        updateDisplay();
+    });
+    
+    socket.on('timerUpdate', (data) => {
+        console.log('⏰ Timer update:', data);
+        if (data) {
+            if (data.whiteTime !== undefined) whiteTime = data.whiteTime;
+            if (data.blackTime !== undefined) blackTime = data.blackTime;
+            updateDisplay();
+        }
+    });
+    
+    socket.on('chatUpdate', (data) => {
+        console.log('💬 Chat update:', data);
+        if (data && data.chat) {
+            chatMessages = data.chat;
+            renderChat();
+        }
+    });
+    
+    socket.on('gameOver', (data) => {
+        console.log('🏁 Game over:', data);
+        updateStatus('Game Over: ' + (data.reason || 'Unknown reason'));
+    });
+    
+    socket.on('gameOverDisconnect', () => {
+        console.log('👋 Opponent disconnected');
+        updateStatus('Opponent disconnected - You win!');
+    });
+}
+
+function setupBoard() {
+    const config = {
+        draggable: true,
+        position: 'start',
+        onDragStart: onDragStart,
+        onDrop: onDrop,
+        onSnapEnd: onSnapEnd,
+        pieceTheme: 'img/chesspieces/wikipedia/{piece}.png'
+    };
+    
+    board = Chessboard('myBoard', config);
+    if (myColor === 'black') {
+        board.flip();
     }
-  }
-  
-  console.log('Timer update - White:', formatTime(whiteTime), 'Black:', formatTime(blackTime), 'Turn:', turn || game.turn());
 }
 
-function updateStatus() {
-  let status = '';
-  const moveColor = (game.turn() === 'b') ? 'Black' : 'White';
-
-  if (game.in_checkmate()) {
-    status = 'Game over, ' + moveColor + ' is in checkmate.';
-  } else if (game.in_draw()) {
-    status = 'Game over, drawn position';
-  } else if (gameOver) {
-    status = 'Opponent disconnected, you win!';
-  } else if (!gameHasStarted) {
-    status = 'Waiting for opponent to join';
-  } else {
-    status = moveColor + ' to move';
-    if (game.in_check()) status += ', ' + moveColor + ' is in check';
-  }
-  updateTimerDisplays(game.turn());
-  $status.html(status);
-  $pgn.html(game.pgn());
-}
-
-// --- Board Event Handlers ---
 function onDragStart(source, piece, position, orientation) {
-  if (gameOver) return false;
-  if (!gameHasStarted) return false;
-  // Only allow moving your own color pieces
-  if (myColor === 'white' && piece.search(/^b/) !== -1) return false;
-  if (myColor === 'black' && piece.search(/^w/) !== -1) return false;
-  // Only move if it's your turn
-  if ((game.turn() === 'w' && myColor !== 'white') || (game.turn() === 'b' && myColor !== 'black')) {
-    return false;
-  }
+    // Don't pick up pieces if game is over or not started
+    if (game.game_over() || !gameStarted) return false;
+    
+    // Only pick up pieces for the side to move
+    if ((game.turn() === 'w' && myColor !== 'white') ||
+        (game.turn() === 'b' && myColor !== 'black')) {
+        return false;
+    }
+    
+    // Only pick up your own pieces
+    if ((myColor === 'white' && piece.search(/^b/) !== -1) ||
+        (myColor === 'black' && piece.search(/^w/) !== -1)) {
+        return false;
+    }
 }
 
 function onDrop(source, target) {
-  const moveObj = { from: source, to: target, promotion: 'q' };
-  const move = game.move(moveObj);
-  if (move === null) return 'snapback';
-  socket.emit('move', moveObj);
-  updateStatus();
+    // Try to make the move
+    const move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q'
+    });
+    
+    // Illegal move
+    if (move === null) return 'snapback';
+    
+    // Send move to server
+    socket.emit('move', {
+        from: source,
+        to: target,
+        promotion: 'q'
+    });
+    
+    updateDisplay();
 }
 
 function onSnapEnd() {
-  board.position(game.fen());
+    board.position(game.fen());
 }
 
-// --- Chat ---
-function renderChat() {
-  let html = '';
-  for (let i = 0; i < chatMessages.length; i++) {
-    const m = chatMessages[i];
-    if (m.color === myColor) {
-      html += `<div style='color:#333;'><b>You:</b> ${m.msg}</div>`;
+function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return minutes + ':' + (secs < 10 ? '0' : '') + secs;
+}
+
+function updateDisplay() {
+    // Update status
+    let status = '';
+    const moveColor = (game.turn() === 'b') ? 'Black' : 'White';
+    
+    if (game.in_checkmate()) {
+        status = 'Game over, ' + moveColor + ' is in checkmate.';
+    } else if (game.in_draw()) {
+        status = 'Game over, drawn position';
+    } else if (!gameStarted) {
+        status = 'Waiting for opponent to join...';
     } else {
-      html += `<div style='color:#8d5524;'><b>Opponent:</b> ${m.msg}</div>`;
+        status = moveColor + ' to move';
+        if (game.in_check()) {
+            status += ', ' + moveColor + ' is in check';
+        }
     }
-  }
-  $('#chat-messages').html(html);
-  const el = document.getElementById('chat-messages');
-  el.scrollTop = el.scrollHeight;
+    
+    updateStatus(status);
+    
+    // Update timers
+    if (whiteTimerEl) {
+        whiteTimerEl.textContent = formatTime(whiteTime);
+        whiteTimerEl.style.backgroundColor = (game.turn() === 'w' && gameStarted) ? '#ffeb3b' : '#f5f5f5';
+    }
+    if (blackTimerEl) {
+        blackTimerEl.textContent = formatTime(blackTime);
+        blackTimerEl.style.backgroundColor = (game.turn() === 'b' && gameStarted) ? '#ffeb3b' : '#f5f5f5';
+    }
+    
+    // Update PGN
+    const pgnEl = document.getElementById('pgn');
+    if (pgnEl) {
+        pgnEl.textContent = game.pgn();
+    }
+}
+
+function updateStatus(text) {
+    const statusEl = document.getElementById('status');
+    if (statusEl) {
+        statusEl.textContent = text;
+    }
+    console.log('Status:', text);
+}
+
+function renderChat() {
+    const chatEl = document.getElementById('chat-messages');
+    if (!chatEl) return;
+    
+    let html = '';
+    chatMessages.forEach(msg => {
+        const isMyMessage = msg.color === myColor;
+        const name = isMyMessage ? 'You' : 'Opponent';
+        const style = isMyMessage ? 'color: #333;' : 'color: #8d5524;';
+        html += `<div style="${style}"><b>${name}:</b> ${msg.msg}</div>`;
+    });
+    
+    chatEl.innerHTML = html;
+    chatEl.scrollTop = chatEl.scrollHeight;
 }
 
 function sendChatMessage() {
-  const val = $('#chat-input').val().trim();
-  if (val.length > 0 && myColor) {
-    console.log('Sending chat message:', val, 'Color:', myColor);
-    socket.emit('chatMessage', { msg: val, color: myColor });
-    $('#chat-input').val('');
-  } else {
-    console.log('Cannot send message - Value:', val, 'Color:', myColor);
-  }
+    const inputEl = document.getElementById('chat-input');
+    if (!inputEl) return;
+    
+    const message = inputEl.value.trim();
+    if (message && socket && myColor) {
+        console.log('Sending chat:', message);
+        socket.emit('chatMessage', {
+            msg: message,
+            color: myColor
+        });
+        inputEl.value = '';
+    }
 }
 
-$('#chat-send').on('click', sendChatMessage);
-$('#chat-input').on('keypress', e => { if (e.which === 13) sendChatMessage(); });
-
-// --- Socket Events ---
-socket.on('startGame', data => {
-  console.log('Game starting with data:', data);
-  gameHasStarted = true;
-  if (data) {
-    if (typeof data.whiteTime === 'number') whiteTime = data.whiteTime;
-    if (typeof data.blackTime === 'number') blackTime = data.blackTime;
-    if (Array.isArray(data.chat)) { chatMessages = data.chat; renderChat(); }
-  }
-  updateTimerDisplays();
-  updateStatus();
-  console.log('Game started, gameHasStarted:', gameHasStarted);
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing game...');
+    initializeGame();
+    
+    // Setup chat
+    const chatSendBtn = document.getElementById('chat-send');
+    const chatInput = document.getElementById('chat-input');
+    
+    if (chatSendBtn) {
+        chatSendBtn.onclick = sendChatMessage;
+    }
+    
+    if (chatInput) {
+        chatInput.onkeypress = function(e) {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        };
+    }
 });
 
-socket.on('chatUpdate', data => {
-  console.log('Chat update received:', data);
-  if (data && Array.isArray(data.chat)) { 
-    chatMessages = data.chat; 
-    renderChat(); 
-  }
-});
-
-socket.on('gameOverDisconnect', () => {
-  console.log('Game over - opponent disconnected');
-  gameOver = true;
-  updateStatus();
-});
-
-socket.on('newMove', data => {
-  console.log('New move received:', data);
-  if (data && data.move) {
-    game.move(data.move);
-    board.position(game.fen());
-  }
-  if (typeof data.whiteTime === 'number') whiteTime = data.whiteTime;
-  if (typeof data.blackTime === 'number') blackTime = data.blackTime;
-  updateTimerDisplays(data.turn);
-  updateStatus();
-});
-
-// Timer updates from backend
-socket.on('timerUpdate', data => {
-  console.log('Timer update received:', data);
-  if (data) {
-    if (typeof data.whiteTime === 'number') whiteTime = data.whiteTime;
-    if (typeof data.blackTime === 'number') blackTime = data.blackTime;
-    updateTimerDisplays(data.turn);
-  }
-});
-
-// Handle game over by timeout
-socket.on('gameOver', data => {
-  console.log('Game over received:', data);
-  if (data && data.reason === 'timeout') {
-    gameOver = true;
-    updateStatus();
-  }
-});
-
-// --- Board Init ---
-const config = {
-  draggable: true,
-  position: 'start',
-  onDragStart: onDragStart,
-  onDrop: onDrop,
-  onSnapEnd: onSnapEnd,
-  pieceTheme: 'img/chesspieces/wikipedia/{piece}.png'
-};
-
+// Legacy jQuery initialization (if jQuery loads after this)
 $(function() {
-  board = Chessboard('myBoard', config);
-  if (myColor === 'black') board.flip();
-  updateStatus();
-  updateTimerDisplays('w');
+    if (!board) {
+        console.log('jQuery loaded, re-initializing if needed...');
+        initializeGame();
+    }
 });
