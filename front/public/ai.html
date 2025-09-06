@@ -1,11 +1,13 @@
 <html>
 <head>
-    {{> head}}
-    <script src="/public/js/chess-0.10.3.min.js"></script>
-    <script src="/public/js/chessboard-1.0.0.min.js"></script>
-    <script src="/public/js/jquery-3.7.0.min.js"></script>
-    <script src="/public/js/ai.js"></script>
-    <link rel="stylesheet" href="/public/css/chessboard-1.0.0.min.css">
+    <!-- Head partial removed for static deployment -->
+    <script src="/js/jquery-3.7.0.min.js"></script>
+<script src="/js/chess-0.10.3.min.js"></script>
+<script src="/js/chessboard-1.0.0.min.js"></script>
+<script src="/js/ai.js"></script>
+<link rel="stylesheet" href="/css/chessboard-1.0.0.min.css">
+    <!-- <script src="/js/jquery-3.7.0.min.js"></script>
+    <script src="/js/ai.js"></script> -->
     <style>
         body { background: linear-gradient(135deg,#ffe082 0%,#fff8e1 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #aiBoard { width: 600px; margin: 32px auto; }
@@ -33,7 +35,7 @@
             onDragStart: onDragStart,
             onDrop: onDrop,
             onSnapEnd: onSnapEnd,
-            pieceTheme: '/public/img/chesspieces/wikipedia/{piece}.png'
+            pieceTheme: '/img/chesspieces/wikipedia/{piece}.png'
         });
         var ai = new ChessAI(difficulty);
         var humanColor = 'w';
