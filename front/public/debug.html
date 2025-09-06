@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chess Debug</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 5px; }
+        .error { background: #ffcccc; }
+        .success { background: #ccffcc; }
+        button { margin: 5px; padding: 10px; }
+        #log { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin: 10px 0; background: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <h1>Chess Game Debug Tool</h1>
+    
+    <div class="status" id="connection-status">🔄 Connecting...</div>
+    
+    <div>
+        <label>Game Code: <input type="text" id="gameCode" value="test123" /></label>
+        <label>Color: 
+            <select id="playerColor">
+                <option value="white">White</option>
+                <option value="black">Black</option>
+            </select>
+        </label>
+        <button onclick="joinGame()">Join Game</button>
+    </div>
+    
+    <div>
+        <label>Chat Message: <input type="text" id="chatMsg" placeholder="Type a message..." /></label>
+        <button onclick="sendChat()">Send Chat</button>
+    </div>
+    
+    <div>
+        <button onclick="makeTestMove()">Make Test Move (e2-e4)</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <div id="log"></div>
+
+    <script>
+        const backendUrl = 'https://chessbackend-m68d.onrender.com';
+        const socket = io(backendUrl, { 
+            transports: ['websocket', 'polling'],
+            timeout: 5000
+        });
+        
+        let currentGameCode = '';
+        let myColor = 'white';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            logDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('connection-status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        // Socket events
+        socket.on('connect', () => {
+            log('✅ Connected to backend!', 'success');
+            updateStatus('✅ Connected to backend', 'success');
+        });
+        
+        socket.on('disconnect', () => {
+            log('❌ Disconnected from backend', 'error');
+            updateStatus('❌ Disconnected from backend', 'error');
+        });
+        
+        socket.on('connect_error', (error) => {
+            log('❌ Connection error: ' + error.message, 'error');
+            updateStatus('❌ Connection failed', 'error');
+        });
+        
+        socket.on('startGame', (data) => {
+            log('🎮 Game started: ' + JSON.stringify(data), 'success');
+        });
+        
+        socket.on('newMove', (data) => {
+            log('♟️ Move received: ' + JSON.stringify(data));
+        });
+        
+        socket.on('timerUpdate', (data) => {
+            log('⏰ Timer update: ' + JSON.stringify(data));
+        });
+        
+        socket.on('chatUpdate', (data) => {
+            log('💬 Chat update: ' + JSON.stringify(data));
+        });
+        
+        socket.on('gameOver', (data) => {
+            log('🏁 Game over: ' + JSON.stringify(data));
+        });
+        
+        socket.on('gameOverDisconnect', () => {
+            log('👋 Opponent disconnected');
+        });
+        
+        // Functions
+        function joinGame() {
+            currentGameCode = document.getElementById('gameCode').value;
+            myColor = document.getElementById('playerColor').value;
+            
+            if (!currentGameCode) {
+                alert('Please enter a game code');
+                return;
+            }
+            
+            log(`🚪 Joining game "${currentGameCode}" as ${myColor}`);
+            socket.emit('joinGame', { code: currentGameCode });
+        }
+        
+        function sendChat() {
+            const msg = document.getElementById('chatMsg').value.trim();
+            if (!msg || !currentGameCode) {
+                alert('Please join a game and enter a message');
+                return;
+            }
+            
+            log(`📤 Sending chat: "${msg}" as ${myColor}`);
+            socket.emit('chatMessage', { msg: msg, color: myColor });
+            document.getElementById('chatMsg').value = '';
+        }
+        
+        function makeTestMove() {
+            if (!currentGameCode) {
+                alert('Please join a game first');
+                return;
+            }
+            
+            log('📤 Sending test move: e2-e4');
+            socket.emit('move', { from: 'e2', to: 'e4', promotion: 'q' });
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        // Auto-connect on page load
+        log('🔄 Page loaded, attempting to connect...');
+    </script>
+</body>
+</html>
