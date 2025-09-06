@@ -38,12 +38,8 @@ let gameOver = false;
 // --- Timer logic ---
 let whiteTime = 600;
 let blackTime = 600;
-let myColor = null;
-
-// Get color and code from URL for static hosting
-const urlParams = new URLSearchParams(window.location.search);
-let myColor = (window.playerColor || urlParams.get('color') || 'white');
-let gameCode = (window.gameCode || urlParams.get('code') || '');
+let myColor = (window.playerColor || (new URLSearchParams(window.location.search)).get('color') || 'white');
+let gameCode = (window.gameCode || (new URLSearchParams(window.location.search)).get('code') || '');
 
 function updateTimerDisplays(turn) {
     const format = (secs) => {
@@ -160,9 +156,6 @@ if (myColor === 'black') {
 updateStatus();
 
 // Remove setColor logic and always join game with a valid code
-var urlParams = new URLSearchParams(window.location.search);
-var gameCode = urlParams.get('code');
-
 if (gameCode) {
     socket.emit('joinGame', { code: gameCode });
 }
