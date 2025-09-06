@@ -22,11 +22,8 @@ const blackTimerEl = document.getElementById('black-timer');
 // Chat state
 let chatMessages = [];
 
-// Backend URL auto-detect (empty => same origin)
-let backendUrl = '';
-if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-  backendUrl = 'https://chessbackend-m68d.onrender.com'; // Your Render backend URL
-}
+// Backend URL - always use Render backend for Socket.IO
+let backendUrl = 'https://chessbackend-m68d.onrender.com';
 
 // Socket connection
 const socket = io(backendUrl, { transports: ['websocket', 'polling'] });
