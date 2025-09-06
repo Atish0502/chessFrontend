@@ -2,7 +2,7 @@
 // Use deployed backend URL if not running locally
 let backendUrl = '';
 if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-    backendUrl = 'https://your-chess-backend.onrender.com'; // <-- replace with your Render backend URL
+    backendUrl = 'https://chessbackend-m68d.onrender.com'; // <-- replace with your Render backend URL
 }
 // If using Vercel/Render, make sure CORS and WebSocket proxying are enabled on backend
 const socket = io(backendUrl, {
