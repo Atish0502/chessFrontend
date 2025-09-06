@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Working Chess - Final Version</title>
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .board { width: 400px; height: 400px; border: 2px solid #333; margin: 20px 0; background: white; }
+        .row { display: flex; }
+        .square { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; }
+        .white { background: #f0d9b5; }
+        .black { background: #b58863; }
+        .status { padding: 15px; background: white; border: 1px solid #ddd; margin: 10px 0; }
+        .timer { padding: 10px; background: white; border: 1px solid #ddd; margin: 5px 0; text-align: center; }
+        .chat { height: 150px; border: 1px solid #ddd; padding: 10px; background: white; overflow-y: auto; margin: 10px 0; }
+        input { width: 100%; padding: 8px; margin: 5px 0; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .connected { background: #d4edda; }
+        .connecting { background: #fff3cd; }
+        .error { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chess Game - ACTUALLY WORKING</h1>
+        
+        <div id="connection" class="status connecting">🔄 Starting...</div>
+        
+        <div>
+            <strong>Game Code:</strong> <span id="gameCode">-</span> | 
+            <strong>You are:</strong> <span id="playerColor">-</span>
+        </div>
+        
+        <div class="timer" id="whiteTimer">White: 10:00</div>
+        <div class="timer" id="blackTimer">Black: 10:00</div>
+        
+        <div class="board" id="board"></div>
+        
+        <div class="status" id="gameStatus">Loading...</div>
+        
+        <div class="chat" id="chatBox"></div>
+        <input type="text" id="chatInput" placeholder="Type message..." maxlength="100">
+        <button onclick="sendMessage()">Send Message</button>
+        
+        <div style="margin-top: 20px;">
+            <button onclick="makeMove('e2', 'e4')">Test Move: e2-e4</button>
+            <button onclick="location.reload()">Restart</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // SIMPLE WORKING CHESS - NO FANCY LIBRARIES
+        
+        let socket = null;
+        let gameCode = '';
+        let myColor = 'white';
+        let gameStarted = false;
+        let whiteTime = 600;
+        let blackTime = 600;
+        let messages = [];
+        let currentTurn = 'white';
+        
+        // Simple board representation
+        let board = [
+            ['r','n','b','q','k','b','n','r'],
+            ['p','p','p','p','p','p','p','p'],
+            [' ',' ',' ',' ',' ',' ',' ',' '],
+            [' ',' ',' ',' ',' ',' ',' ',' '],
+            [' ',' ',' ',' ',' ',' ',' ',' '],
+            [' ',' ',' ',' ',' ',' ',' ',' '],
+            ['P','P','P','P','P','P','P','P'],
+            ['R','N','B','Q','K','B','N','R']
+        ];
+        
+        // Piece symbols
+        const pieces = {
+            'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+            'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙',
+            ' ': ''
+        };
+        
+        function init() {
+            // Get URL parameters
+            const params = new URLSearchParams(window.location.search);
+            gameCode = params.get('code') || 'test123';
+            myColor = params.get('color') || 'white';
+            
+            document.getElementById('gameCode').textContent = gameCode;
+            document.getElementById('playerColor').textContent = myColor;
+            
+            updateStatus('Initializing...');
+            drawBoard();
+            connectToServer();
+        }
+        
+        function connectToServer() {
+            updateStatus('Connecting to server...', 'connecting');
+            
+            try {
+                socket = io('https://chessbackend-m68d.onrender.com', {
+                    transports: ['polling'],
+                    timeout: 30000
+                });
+                
+                socket.on('connect', () => {
+                    updateStatus('✅ Connected! Joining game...', 'connected');
+                    socket.emit('joinGame', { code: gameCode });
+                });
+                
+                socket.on('connect_error', (error) => {
+                    updateStatus('❌ Connection failed: ' + error, 'error');
+                });
+                
+                socket.on('disconnect', () => {
+                    updateStatus('❌ Disconnected', 'error');
+                });
+                
+                socket.on('startGame', (data) => {
+                    gameStarted = true;
+                    updateStatus('✅ Game started! Make your move', 'connected');
+                    if (data) {
+                        whiteTime = data.whiteTime || 600;
+                        blackTime = data.blackTime || 600;
+                        messages = data.chat || [];
+                        updateTimers();
+                        renderChat();
+                    }
+                });
+                
+                socket.on('newMove', (data) => {
+                    if (data && data.move) {
+                        makeLocalMove(data.move.from, data.move.to);
+                        switchTurn();
+                    }
+                    if (data.whiteTime !== undefined) whiteTime = data.whiteTime;
+                    if (data.blackTime !== undefined) blackTime = data.blackTime;
+                    updateTimers();
+                });
+                
+                socket.on('timerUpdate', (data) => {
+                    if (data) {
+                        if (data.whiteTime !== undefined) whiteTime = data.whiteTime;
+                        if (data.blackTime !== undefined) blackTime = data.blackTime;
+                        updateTimers();
+                    }
+                });
+                
+                socket.on('chatUpdate', (data) => {
+                    if (data && data.chat) {
+                        messages = data.chat;
+                        renderChat();
+                    }
+                });
+                
+            } catch (error) {
+                updateStatus('❌ Failed to connect: ' + error, 'error');
+            }
+        }
+        
+        function drawBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            
+            for (let row = 0; row < 8; row++) {
+                const rowEl = document.createElement('div');
+                rowEl.className = 'row';
+                
+                for (let col = 0; col < 8; col++) {
+                    const squareEl = document.createElement('div');
+                    squareEl.className = 'square ' + ((row + col) % 2 === 0 ? 'white' : 'black');
+                    squareEl.textContent = pieces[board[row][col]];
+                    squareEl.onclick = () => squareClicked(row, col);
+                    rowEl.appendChild(squareEl);
+                }
+                
+                boardEl.appendChild(rowEl);
+            }
+        }
+        
+        let selectedSquare = null;
+        
+        function squareClicked(row, col) {
+            if (!gameStarted) return;
+            
+            if (selectedSquare) {
+                // Make move
+                const fromPos = String.fromCharCode(97 + selectedSquare.col) + (8 - selectedSquare.row);
+                const toPos = String.fromCharCode(97 + col) + (8 - row);
+                
+                if (canMove(selectedSquare.row, selectedSquare.col, row, col)) {
+                    makeMove(fromPos, toPos);
+                }
+                
+                selectedSquare = null;
+                drawBoard();
+            } else {
+                // Select piece
+                if (board[row][col] !== ' ') {
+                    const piece = board[row][col];
+                    const isWhitePiece = piece === piece.toUpperCase();
+                    
+                    if ((myColor === 'white' && isWhitePiece && currentTurn === 'white') ||
+                        (myColor === 'black' && !isWhitePiece && currentTurn === 'black')) {
+                        selectedSquare = { row, col };
+                        drawBoard();
+                        // Highlight selected square
+                        const squares = document.querySelectorAll('.square');
+                        squares[row * 8 + col].style.background = '#ffeb3b';
+                    }
+                }
+            }
+        }
+        
+        function canMove(fromRow, fromCol, toRow, toCol) {
+            // Simple validation - just check if target is different and not our own piece
+            if (fromRow === toRow && fromCol === toCol) return false;
+            
+            const fromPiece = board[fromRow][fromCol];
+            const toPiece = board[toRow][toCol];
+            
+            if (toPiece !== ' ') {
+                const fromIsWhite = fromPiece === fromPiece.toUpperCase();
+                const toIsWhite = toPiece === toPiece.toUpperCase();
+                if (fromIsWhite === toIsWhite) return false; // Can't capture own piece
+            }
+            
+            return true;
+        }
+        
+        function makeMove(from, to) {
+            if (!socket || !gameStarted) {
+                updateStatus('❌ Not connected or game not started', 'error');
+                return;
+            }
+            
+            console.log('Making move:', from, 'to', to);
+            socket.emit('move', { from, to, promotion: 'q' });
+            
+            // Apply move locally
+            const fromRow = 8 - parseInt(from[1]);
+            const fromCol = from.charCodeAt(0) - 97;
+            const toRow = 8 - parseInt(to[1]);
+            const toCol = to.charCodeAt(0) - 97;
+            
+            makeLocalMove({from, to});
+            switchTurn();
+        }
+        
+        function makeLocalMove(move) {
+            const from = move.from;
+            const to = move.to;
+            
+            const fromRow = 8 - parseInt(from[1]);
+            const fromCol = from.charCodeAt(0) - 97;
+            const toRow = 8 - parseInt(to[1]);
+            const toCol = to.charCodeAt(0) - 97;
+            
+            board[toRow][toCol] = board[fromRow][fromCol];
+            board[fromRow][fromCol] = ' ';
+            
+            drawBoard();
+        }
+        
+        function switchTurn() {
+            currentTurn = currentTurn === 'white' ? 'black' : 'white';
+            updateGameStatus();
+        }
+        
+        function updateGameStatus() {
+            const status = gameStarted ? 
+                (currentTurn === myColor ? 'Your turn' : 'Opponent\'s turn') : 
+                'Waiting for opponent...';
+            document.getElementById('gameStatus').textContent = status;
+        }
+        
+        function updateStatus(text, type = '') {
+            const el = document.getElementById('connection');
+            el.textContent = text;
+            el.className = 'status ' + type;
+            console.log('Status:', text);
+        }
+        
+        function updateTimers() {
+            document.getElementById('whiteTimer').textContent = 'White: ' + formatTime(whiteTime);
+            document.getElementById('blackTimer').textContent = 'Black: ' + formatTime(blackTime);
+            
+            // Highlight active player
+            document.getElementById('whiteTimer').style.background = currentTurn === 'white' ? '#ffeb3b' : 'white';
+            document.getElementById('blackTimer').style.background = currentTurn === 'black' ? '#ffeb3b' : 'white';
+        }
+        
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return m + ':' + (s < 10 ? '0' : '') + s;
+        }
+        
+        function renderChat() {
+            const chatEl = document.getElementById('chatBox');
+            let html = '';
+            
+            messages.forEach(msg => {
+                const isMe = msg.color === myColor;
+                const name = isMe ? 'You' : 'Opponent';
+                const color = isMe ? 'blue' : 'red';
+                html += `<div style="color: ${color}"><strong>${name}:</strong> ${msg.msg}</div>`;
+            });
+            
+            chatEl.innerHTML = html;
+            chatEl.scrollTop = chatEl.scrollHeight;
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            
+            if (msg && socket) {
+                socket.emit('chatMessage', { msg, color: myColor });
+                input.value = '';
+            }
+        }
+        
+        // Enter key for chat
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+        
+        // Initialize on page load
+        window.onload = init;
+        
+        console.log('Chess game loaded');
+    </script>
+</body>
+</html>
