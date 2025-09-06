@@ -1,11 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta http-equiv="refresh" content="0; url=./front/public/index.html">
-    <title>Chess Game - Redirecting...</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+        .loading { color: #666; font-size: 18px; }
+        a { color: #007bff; text-decoration: none; }
+    </style>
 </head>
 <body>
-    <p>Redirecting to chess game...</p>
-    <script>window.location.href = './front/public/index.html';</script>
+    <div class="loading">Loading Chess Game...</div>
+    <p><a href="front/public/index.html">Click here if not redirected automatically</a></p>
+    <script>
+        // Immediate redirect
+        window.location.replace('./front/public/index.html');
+    </script>
 </body>
 </html>
