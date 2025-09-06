@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket Test</title>
+</head>
+<body>
+    <h1>Socket.IO Connection Test</h1>
+    <div id="status">Testing...</div>
+    <button onclick="testConnection()">Test Connection</button>
+    <div id="log"></div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        function log(msg) {
+            document.getElementById('log').innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + msg + '</div>';
+        }
+        
+        function testConnection() {
+            log('Starting connection test...');
+            
+            const socket = io('https://chessbackend-m68d.onrender.com', {
+                transports: ['polling'],
+                timeout: 10000
+            });
+            
+            socket.on('connect', () => {
+                log('✅ CONNECTED! Socket ID: ' + socket.id);
+                document.getElementById('status').innerHTML = '✅ CONNECTED';
+                document.getElementById('status').style.background = 'lightgreen';
+                
+                // Test joining a game
+                socket.emit('joinGame', { code: 'test123' });
+                log('Sent joinGame event');
+            });
+            
+            socket.on('connect_error', (error) => {
+                log('❌ Connection Error: ' + error);
+                document.getElementById('status').innerHTML = '❌ FAILED';
+                document.getElementById('status').style.background = 'lightcoral';
+            });
+            
+            socket.on('startGame', (data) => {
+                log('🎮 Game started! Data: ' + JSON.stringify(data));
+            });
+            
+            socket.on('disconnect', (reason) => {
+                log('❌ Disconnected: ' + reason);
+            });
+        }
+        
+        // Auto-test on page load
+        setTimeout(testConnection, 1000);
+    </script>
+</body>
+</html>
