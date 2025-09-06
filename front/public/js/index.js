@@ -25,7 +25,7 @@ let chatMessages = [];
 // Backend URL auto-detect (empty => same origin)
 let backendUrl = '';
 if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-  backendUrl = 'https://your-actual-render-url.onrender.com'; // Replace with your actual Render backend URL
+  backendUrl = 'https://chessbackend-m68d.onrender.com'; // Your Render backend URL
 }
 
 // Socket connection
