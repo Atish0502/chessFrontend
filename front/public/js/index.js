@@ -41,7 +41,10 @@ const socket = io(backendUrl, {
 // Add connection status logging
 socket.on('connect', () => {
   console.log('✅ Connected to backend!');
-  if (gameCode) socket.emit('joinGame', { code: gameCode });
+  if (gameCode) {
+    console.log('Joining game with code:', gameCode);
+    socket.emit('joinGame', { code: gameCode });
+  }
 });
 
 socket.on('disconnect', () => {
@@ -60,9 +63,25 @@ function formatTime(seconds) {
 }
 
 function updateTimerDisplays(turn) {
-  if (whiteTimerEl && typeof whiteTime === 'number') whiteTimerEl.textContent = formatTime(whiteTime);
-  if (blackTimerEl && typeof blackTime === 'number') blackTimerEl.textContent = formatTime(blackTime);
-  console.log('Timer update:', whiteTime, blackTime, whiteTimerEl, blackTimerEl);
+  if (whiteTimerEl && typeof whiteTime === 'number') {
+    whiteTimerEl.textContent = formatTime(whiteTime);
+  }
+  if (blackTimerEl && typeof blackTime === 'number') {
+    blackTimerEl.textContent = formatTime(blackTime);
+  }
+  
+  // Add visual indication of whose turn it is
+  if (whiteTimerEl && blackTimerEl && gameHasStarted) {
+    if (turn === 'w' || game.turn() === 'w') {
+      whiteTimerEl.style.backgroundColor = '#ffeb3b';
+      blackTimerEl.style.backgroundColor = '#f5f5f5';
+    } else {
+      whiteTimerEl.style.backgroundColor = '#f5f5f5';
+      blackTimerEl.style.backgroundColor = '#ffeb3b';
+    }
+  }
+  
+  console.log('Timer update - White:', formatTime(whiteTime), 'Black:', formatTime(blackTime), 'Turn:', turn || game.turn());
 }
 
 function updateStatus() {
@@ -130,8 +149,11 @@ function renderChat() {
 function sendChatMessage() {
   const val = $('#chat-input').val().trim();
   if (val.length > 0 && myColor) {
+    console.log('Sending chat message:', val, 'Color:', myColor);
     socket.emit('chatMessage', { msg: val, color: myColor });
     $('#chat-input').val('');
+  } else {
+    console.log('Cannot send message - Value:', val, 'Color:', myColor);
   }
 }
 
@@ -139,14 +161,6 @@ $('#chat-send').on('click', sendChatMessage);
 $('#chat-input').on('keypress', e => { if (e.which === 13) sendChatMessage(); });
 
 // --- Socket Events ---
-if (gameCode) {
-  socket.emit('joinGame', { code: gameCode });
-}
-
-socket.on('connect', () => {
-  if (gameCode) socket.emit('joinGame', { code: gameCode });
-});
-
 socket.on('startGame', data => {
   console.log('Game starting with data:', data);
   gameHasStarted = true;
@@ -161,27 +175,34 @@ socket.on('startGame', data => {
 });
 
 socket.on('chatUpdate', data => {
-  if (data && Array.isArray(data.chat)) { chatMessages = data.chat; renderChat(); }
+  console.log('Chat update received:', data);
+  if (data && Array.isArray(data.chat)) { 
+    chatMessages = data.chat; 
+    renderChat(); 
+  }
 });
 
 socket.on('gameOverDisconnect', () => {
+  console.log('Game over - opponent disconnected');
   gameOver = true;
   updateStatus();
 });
 
 socket.on('newMove', data => {
+  console.log('New move received:', data);
   if (data && data.move) {
     game.move(data.move);
     board.position(game.fen());
   }
   if (typeof data.whiteTime === 'number') whiteTime = data.whiteTime;
   if (typeof data.blackTime === 'number') blackTime = data.blackTime;
-  updateTimerDisplays();
+  updateTimerDisplays(data.turn);
   updateStatus();
 });
 
-// Optional: timer updates if backend emits (already handled in newMove + startGame)
+// Timer updates from backend
 socket.on('timerUpdate', data => {
+  console.log('Timer update received:', data);
   if (data) {
     if (typeof data.whiteTime === 'number') whiteTime = data.whiteTime;
     if (typeof data.blackTime === 'number') blackTime = data.blackTime;
@@ -189,8 +210,9 @@ socket.on('timerUpdate', data => {
   }
 });
 
-// Optional: handle game over by timeout
+// Handle game over by timeout
 socket.on('gameOver', data => {
+  console.log('Game over received:', data);
   if (data && data.reason === 'timeout') {
     gameOver = true;
     updateStatus();
