@@ -13,11 +13,18 @@ let gameOver = false;
 let whiteTime = 600; // default 10:00
 let blackTime = 600;
 
-// Cached DOM refs
+// Cached DOM refs - with null checks
 const $status = $('#status');
 const $pgn = $('#pgn');
-const whiteTimerEl = document.getElementById('white-timer');
-const blackTimerEl = document.getElementById('black-timer');
+let whiteTimerEl = null;
+let blackTimerEl = null;
+
+// Initialize timer elements when DOM is ready
+$(function() {
+  whiteTimerEl = document.getElementById('white-timer');
+  blackTimerEl = document.getElementById('black-timer');
+  console.log('Timer elements found:', whiteTimerEl, blackTimerEl);
+});
 
 // Chat state
 let chatMessages = [];
@@ -36,8 +43,9 @@ function formatTime(seconds) {
 }
 
 function updateTimerDisplays(turn) {
-  if (typeof whiteTime === 'number') whiteTimerEl.textContent = formatTime(whiteTime);
-  if (typeof blackTime === 'number') blackTimerEl.textContent = formatTime(blackTime);
+  if (whiteTimerEl && typeof whiteTime === 'number') whiteTimerEl.textContent = formatTime(whiteTime);
+  if (blackTimerEl && typeof blackTime === 'number') blackTimerEl.textContent = formatTime(blackTime);
+  console.log('Timer update:', whiteTime, blackTime, whiteTimerEl, blackTimerEl);
 }
 
 function updateStatus() {
@@ -123,6 +131,7 @@ socket.on('connect', () => {
 });
 
 socket.on('startGame', data => {
+  console.log('Game starting with data:', data);
   gameHasStarted = true;
   if (data) {
     if (typeof data.whiteTime === 'number') whiteTime = data.whiteTime;
@@ -131,6 +140,7 @@ socket.on('startGame', data => {
   }
   updateTimerDisplays();
   updateStatus();
+  console.log('Game started, gameHasStarted:', gameHasStarted);
 });
 
 socket.on('chatUpdate', data => {
