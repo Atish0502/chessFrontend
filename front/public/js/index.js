@@ -1,6 +1,8 @@
-// CLEAN WORKING CHESS FRONTEND - MATCHES LOCAL VERSION
-// Socket.IO connection - SIMPLE LIKE LOCAL
-const socket = io();
+// CLEAN WORKING CHESS FRONTEND - FIXED FOR DEPLOYMENT
+// Socket.IO connection - CONNECT TO RENDER BACKEND
+const socket = io('https://chessbackend-m68d.onrender.com', {
+    transports: ['websocket', 'polling']
+});
 
 let gameHasStarted = false;
 var board = null;
@@ -8,6 +10,19 @@ var game = new Chess();
 var $status = $('#status');
 var $pgn = $('#pgn');
 let gameOver = false;
+
+// Debug socket connection
+socket.on('connect', function() {
+    console.log('✅ Connected to backend successfully!');
+});
+
+socket.on('disconnect', function() {
+    console.log('❌ Disconnected from backend');
+});
+
+socket.on('connect_error', function(error) {
+    console.log('❌ Connection error:', error);
+});
 
 // --- Timer logic ---
 let whiteTime = 600;
