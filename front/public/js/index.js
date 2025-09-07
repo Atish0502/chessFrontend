@@ -14,6 +14,10 @@ let gameOver = false;
 // Debug socket connection
 socket.on('connect', function() {
     console.log('✅ Connected to backend successfully!');
+    if (gameCode) {
+        console.log('🎮 Joining game:', gameCode, 'as', myColor);
+        socket.emit('joinGame', { code: gameCode });
+    }
 });
 
 socket.on('disconnect', function() {
@@ -49,6 +53,7 @@ function updateTimerDisplays(turn) {
 
 // Only update timers when receiving timerUpdate from server
 socket.on('timerUpdate', function(data) {
+    console.log('⏰ Timer update:', data);
     whiteTime = data.whiteTime;
     blackTime = data.blackTime;
     updateTimerDisplays(data.turn);
@@ -135,29 +140,29 @@ var config = {
 };
 board = Chessboard('myBoard', config);
 
-myColor = playerColor;
+// Get color from URL parameters
+var urlParams = new URLSearchParams(window.location.search);
+var gameCode = urlParams.get('code');
+myColor = urlParams.get('color') || 'white';
+
 if (myColor == 'black') {
     board.flip();
 }
 
 updateStatus();
 
-// Remove setColor logic and always join game with a valid code
-var urlParams = new URLSearchParams(window.location.search);
-var gameCode = urlParams.get('code');
-
-if (gameCode) {
-    socket.emit('joinGame', { code: gameCode });
-}
-
+// Join game with valid code - only on connection
 socket.on('connect', function() {
+    console.log('✅ Connected to backend successfully!');
     if (gameCode) {
+        console.log('🎮 Joining game:', gameCode, 'as', myColor);
         socket.emit('joinGame', { code: gameCode });
     }
 });
 
 // On startGame, set color and request chat if needed
 socket.on('startGame', function(data) {
+    console.log('🎮 Game started!', data);
     gameHasStarted = true;
     if (data && typeof data.whiteTime === 'number' && typeof data.blackTime === 'number') {
         whiteTime = data.whiteTime;
@@ -173,6 +178,7 @@ socket.on('startGame', function(data) {
 
 // On chatUpdate, always update chat
 socket.on('chatUpdate', function(data) {
+    console.log('💬 Chat update:', data);
     if (data && data.chat) {
         chatMessages = data.chat;
         renderChat();
@@ -180,6 +186,7 @@ socket.on('chatUpdate', function(data) {
 });
 
 socket.on('gameOverDisconnect', function() {
+    console.log('🔚 Game over - disconnect');
     gameOver = true;
     updateStatus();
 });
@@ -207,9 +214,13 @@ function renderChat() {
 
 function sendChatMessage() {
     const val = $('#chat-input').val().trim();
+    console.log('💬 Trying to send chat:', val, 'color:', myColor);
     if (val.length > 0 && myColor) {
         socket.emit('chatMessage', { msg: val, color: myColor });
         $('#chat-input').val('');
+        console.log('💬 Chat message sent!');
+    } else {
+        console.log('❌ Cannot send chat - missing value or color');
     }
 }
 
@@ -221,6 +232,7 @@ $(function() {
 });
 
 socket.on('newMove', function(data) {
+    console.log('♟️ New move received:', data);
     // Always update board and timers from server
     game.move(data.move);
     board.position(game.fen());
