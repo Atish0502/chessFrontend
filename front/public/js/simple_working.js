@@ -80,7 +80,11 @@ function initializeSocket() {
         console.log('🎮 Game joined:', data);
         playerColor = data.color;
         
-        updateStatus(`Joined as ${playerColor}. Waiting for opponent...`);
+        if (data.waiting) {
+            updateStatus(`Joined as ${playerColor}. Waiting for opponent...`);
+        } else {
+            updateStatus(`Joined as ${playerColor}. Game will start soon!`);
+        }
         
         if (playerColor === 'black') {
             board.flip();
@@ -90,7 +94,6 @@ function initializeSocket() {
     socket.on('gameStarted', function(data) {
         console.log('🚀 Game started:', data);
         isGameStarted = true;
-        playerColor = data.color;
         
         updateStatus(`Game started! You are ${playerColor}`);
         updateTurnStatus();
