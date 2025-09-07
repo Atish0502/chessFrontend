@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.IO Connection Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Socket.IO Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="log"></div>
+    
+    <script>
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        
+        function addLog(message) {
+            console.log(message);
+            log.innerHTML += '<div>' + new Date().toISOString() + ': ' + message + '</div>';
+        }
+        
+        addLog('Starting connection test...');
+        
+        const socket = io('https://chessbackend-m68d.onrender.com', {
+            transports: ['websocket', 'polling'],
+            timeout: 20000,
+            forceNew: true
+        });
+        
+        socket.on('connect', function() {
+            addLog('✅ Connected to server! Socket ID: ' + socket.id);
+            status.textContent = 'Connected';
+            
+            // Test sending joinGame event
+            addLog('📤 Sending joinGame event...');
+            socket.emit('joinGame', { code: 'test123' });
+        });
+        
+        socket.on('disconnect', function(reason) {
+            addLog('❌ Disconnected: ' + reason);
+            status.textContent = 'Disconnected: ' + reason;
+        });
+        
+        socket.on('connect_error', function(error) {
+            addLog('❌ Connection error: ' + error.message);
+            status.textContent = 'Connection Error';
+        });
+        
+        socket.on('gameJoined', function(data) {
+            addLog('🎮 Game joined! Data: ' + JSON.stringify(data));
+            status.textContent = 'Game Joined!';
+        });
+        
+        socket.on('gameStarted', function(data) {
+            addLog('🚀 Game started! Data: ' + JSON.stringify(data));
+            status.textContent = 'Game Started!';
+        });
+        
+        // Log all events
+        socket.onAny((eventName, ...args) => {
+            addLog('📨 Event received: ' + eventName + ' - ' + JSON.stringify(args));
+        });
+        
+        // Timeout test
+        setTimeout(() => {
+            if (status.textContent === 'Connecting...') {
+                addLog('❌ Connection timeout after 30 seconds');
+                status.textContent = 'Timeout';
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
