@@ -21,7 +21,7 @@
         addLog('Starting connection test...');
         
         const socket = io('https://chessbackend-m68d.onrender.com', {
-            transports: ['websocket', 'polling'],
+            transports: ['polling'],
             timeout: 20000,
             forceNew: true
         });
