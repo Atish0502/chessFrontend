@@ -1,1 +1,6 @@
 /*    /front/public/index.html   200
+/game.html    /front/public/game.html   200
+/ai.html    /front/public/ai.html   200
+/css/*    /front/public/css/:splat   200
+/js/*    /front/public/js/:splat   200
+/img/*    /front/public/img/:splat   200

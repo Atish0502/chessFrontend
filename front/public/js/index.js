@@ -85,15 +85,20 @@ function onDrop (source, target) {
         to: target,
         promotion: 'q'
     };
-    // see if the move is legal
+    
+    // Client-side validation first (for UI responsiveness)
     var move = game.move(theMove);
 
     // illegal move
     if (move === null) return 'snapback';
 
-    // Only send move data, not timers
-    socket.emit('move', theMove);
+    // Temporarily update the board for responsiveness
     updateStatus();
+    
+    // Send to server for authoritative validation
+    socket.emit('move', theMove);
+    
+    // Note: Server will send back the validated move or invalidMove event
 }
 
 function onSnapEnd () {
@@ -140,16 +145,36 @@ var config = {
 };
 board = Chessboard('myBoard', config);
 
-// Get color from URL parameters
+// Get color from URL parameters or wait for server assignment
 var urlParams = new URLSearchParams(window.location.search);
 var gameCode = urlParams.get('code');
-myColor = urlParams.get('color') || 'white';
+myColor = urlParams.get('color') || null; // Allow server to assign if not specified
 
 if (myColor == 'black') {
     board.flip();
 }
 
 updateStatus();
+
+// Handle server color assignment (like Chess.com)
+socket.on('colorAssigned', function(data) {
+    console.log('🎨 Color assigned by server:', data.color);
+    myColor = data.color;
+    if (myColor === 'black') {
+        board.flip();
+    }
+    if (data.waiting) {
+        $status.html('Waiting for opponent to join...');
+    }
+});
+
+// Handle invalid moves
+socket.on('invalidMove', function(data) {
+    console.log('❌ Invalid move:', data);
+    $status.html('Invalid move! ' + data.reason);
+    // Revert the board to the last valid position
+    board.position(game.fen());
+});
 
 // Join game with valid code - only on connection
 socket.on('connect', function() {
@@ -190,6 +215,23 @@ socket.on('chatUpdate', function(data) {
 socket.on('gameOverDisconnect', function() {
     console.log('🔚 Game over - disconnect');
     gameOver = true;
+    $status.html('Game Over - Opponent disconnected');
+    updateStatus();
+});
+
+// Handle checkmate, timeout, draw
+socket.on('gameOver', function(data) {
+    console.log('🏁 Game over:', data);
+    gameOver = true;
+    let message = '';
+    if (data.reason === 'checkmate') {
+        message = `Game Over - ${data.winner} wins by checkmate!`;
+    } else if (data.reason === 'timeout') {
+        message = `Game Over - ${data.winner} wins on time!`;
+    } else if (data.winner === 'draw') {
+        message = 'Game Over - Draw!';
+    }
+    $status.html(message);
     updateStatus();
 });
 
@@ -235,11 +277,26 @@ $(function() {
 
 socket.on('newMove', function(data) {
     console.log('♟️ New move received:', data);
-    // Always update board and timers from server
-    game.move(data.move);
+    
+    // Reset game to server state (authoritative)
+    if (data.fen) {
+        game.load(data.fen);
+    } else {
+        // Fallback: apply move if no FEN provided
+        game.move(data.move);
+    }
+    
+    // Update board to server state
     board.position(game.fen());
+    
+    // Update timers
     whiteTime = data.whiteTime;
     blackTime = data.blackTime;
     updateTimerDisplays(data.turn);
     updateStatus();
+    
+    // Update PGN if provided
+    if (data.pgn) {
+        $pgn.html(data.pgn);
+    }
 });
