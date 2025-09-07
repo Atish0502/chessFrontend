@@ -165,7 +165,15 @@ socket.on('colorAssigned', function(data) {
     }
     if (data.waiting) {
         $status.html('Waiting for opponent to join...');
+    } else {
+        $status.html('Game starting...');
     }
+});
+
+// Handle game full
+socket.on('gameFull', function(data) {
+    console.log('❌ Game is full:', data);
+    $status.html('Game is full! Cannot join.');
 });
 
 // Handle invalid moves

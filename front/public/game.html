@@ -124,26 +124,49 @@
             </div>
         </div>
 
-    <script src="/js/index.js"></script>
-    <script>
-    // Set URL parameters for static hosting
-    (function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const gameCode = urlParams.get('code') || '';
-        const playerColor = urlParams.get('color') || 'white';
-        
-        // Set global variables that the main script will use
-        window.gameCode = gameCode;
-        window.playerColor = playerColor;
-        
-        console.log('Game initialized with:', { gameCode, playerColor });
-        
-        // Display game info
-        if (gameCode) {
-            document.title = `Chess Game - ${gameCode} (${playerColor})`;
-        }
-    })();
-    </script>
+    <script src="/js/index_professional.js"></script>
+    <style>
+    .chat-message {
+        margin: 5px 0;
+        padding: 5px;
+        border-radius: 4px;
+    }
+    .my-message {
+        background-color: #e3f2fd;
+        text-align: right;
+    }
+    .opponent-message {
+        background-color: #f3e5f5;
+        text-align: left;
+    }
+    .timer-box .active {
+        box-shadow: 0 0 15px currentColor !important;
+        animation: pulse 1s infinite alternate;
+    }
+    @keyframes pulse {
+        from { opacity: 0.8; }
+        to { opacity: 1; }
+    }
+    #status {
+        font-weight: bold;
+        padding: 10px;
+        margin: 10px 0;
+        text-align: center;
+        background: #f0f0f0;
+        border-radius: 4px;
+    }
+    #pgn {
+        background: #fafafa;
+        border: 1px solid #ddd;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        max-height: 100px;
+        overflow-y: auto;
+    }
+    </style>
 
     </body>
 </html>
