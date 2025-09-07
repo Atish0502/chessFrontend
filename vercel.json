@@ -1,6 +1,9 @@
 {
   "outputDirectory": "front/public",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/game.html", "destination": "/game.html" },
+    { "source": "/ai.html", "destination": "/ai.html" },
+    { "source": "/(.*)", "destination": "/$1" }
   ]
 }
