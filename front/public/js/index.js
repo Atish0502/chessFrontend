@@ -157,6 +157,8 @@ socket.on('connect', function() {
     if (gameCode) {
         console.log('🎮 Joining game:', gameCode, 'as', myColor);
         socket.emit('joinGame', { code: gameCode });
+        // Show waiting message initially
+        $status.html('Waiting for opponent to join...');
     }
 });
 
